@@ -61,7 +61,7 @@ class LinearModel:
         return costs
 
 
-class PyTorchModel(Module):
+class PyTorchLinearModel(Module):
 
     def __init__(self, n_input, n_output=1):
         super().__init__()
@@ -69,6 +69,41 @@ class PyTorchModel(Module):
 
     def forward(self, x):
         return self.linear(x)
+
+
+def train_pytorch_model(model, n_epochs, train_loader):
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+    pytorch_costs = []
+    loss = 0
+    for epoch in tqdm(range(n_epochs)):
+
+        for x, y in train_loader:
+            predictions = model(x)
+            loss = criterion(predictions, y)
+
+            loss.backward()
+
+            optimizer.step()
+            optimizer.zero_grad()
+        pytorch_costs.append(loss.item())
+
+    return pytorch_costs
+
+
+def evaluate_pytorch_model(model, validation_loader):
+    with torch.no_grad():
+        total_loss = 0
+
+        for x, y in validation_loader:
+            predictions = model(x)
+            loss = criterion(predictions, y)
+            total_loss += loss.item()
+
+        total_loss /= len(validation_loader)
+
+    return total_loss
 
 
 def main():
@@ -100,37 +135,13 @@ def main():
     print(model.theta)
     print(costs[-1])
 
-    pytorch_model = PyTorchModel(n_dims)
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.SGD(pytorch_model.parameters(), lr=0.01)
-
-    pytorch_costs = []
-    loss = 0
-    for epoch in tqdm(range(n_epochs)):
-
-        for x, y in train_loader:
-            predictions = pytorch_model(x)
-            loss = criterion(predictions, y)
-
-            loss.backward()
-
-            optimizer.step()
-            optimizer.zero_grad()
-        pytorch_costs.append(loss.item())
+    pytorch_model = PyTorchLinearModel(n_dims)
+    train_pytorch_model(pytorch_model)
 
     fig = px.line(pytorch_costs)
     fig.show()
 
-    with torch.no_grad():
-        total_loss = 0
-
-        for x, y in validation_loader:
-            predictions = pytorch_model(x)
-            loss = criterion(predictions, y)
-            total_loss += loss.item()
-
-        total_loss /= len(validation_loader)
-
+    total_loss = evaluate_pytorch_model(pytorch_model)
     print(total_loss)
 
     for param in pytorch_model.parameters():
